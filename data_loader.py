@@ -45,9 +45,11 @@ class CelebA(data.Dataset):
             values = split[1:]
 
             label = []
+            ############
+            # selected_attrs: (like) ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young']
             for attr_name in self.selected_attrs:
                 idx = self.attr2idx[attr_name]
-                label.append(values[idx] == '1')
+                label.append(values[idx] == '1') # [0,0,0,0,0,1]
 
             if (i+1) < 2000:
                 self.test_dataset.append([filename, label])
@@ -68,7 +70,7 @@ class CelebA(data.Dataset):
         return self.num_images
 
 
-def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=128, 
+def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=128,
                batch_size=16, dataset='CelebA', mode='train', num_workers=1):
     """Build and return a data loader."""
     transform = []
