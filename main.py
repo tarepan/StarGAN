@@ -59,16 +59,18 @@ def importAndProcessConfigs(parser, name="NNconfig.json"):
         parser.add_argument(*posArgs, **set)
 
 
+class Cfg: pass
+
 def loadConfig(name="NNconfig.json"):
     import json
     f = open(name, "r")
     argSettings = json.load(f)
     f.close()
-    cfg = {}
+    cfg = Cfg()
     for set in argSettings:
         if "default" in set and set["default"] == "None":
             set["default"] = None
-        cfg[set["name"]] = set["default"]
+        setattr(cfg, set["name"], set["default"])
     return cfg
 
 def prepareDirs(config):
