@@ -1,11 +1,7 @@
-Simple and clean StarGAN for single dataset.  
+Simple and clean-code StarGAN for single dataset.  
 This repository is forked from [yunfey/StarGAN](https://github.com/yunjey/StarGAN) (who is first author of StarGAN article).  
 
 This repository provides a PyTorch implementation of [StarGAN](https://arxiv.org/abs/1711.09020). StarGAN can flexibly translate an input image to any desired target domain using only a single generator and a discriminator. The demo video for StarGAN can be found [here](https://www.youtube.com/watch?v=EYjdLppmERE).
-
-<p align="center"><img width="100%" src="jpg/main.jpg" /></p>
-
-<br/>
 
 ## Paper
 [StarGAN: Unified Generative Adversarial Networks for Multi-Domain Image-to-Image Translation](https://arxiv.org/abs/1711.09020) <br/>
@@ -13,21 +9,15 @@ This repository provides a PyTorch implementation of [StarGAN](https://arxiv.org
 <sup>1 </sup>Korea University, <sup>2 </sup>Clova AI Research (NAVER Corp.), <sup>3 </sup>The College of New Jersey, <sup> 4 </sup>HKUST  <br/>
 IEEE Conference on Computer Vision and Pattern Recognition ([CVPR](http://cvpr2018.thecvf.com/)), 2018 (<b>Oral</b>)
 
-<br/>
-
 ## Dependencies
 * [Python 3.5+](https://www.continuum.io/downloads)
 * [PyTorch 0.4.0](http://pytorch.org/)
-* [TensorFlow 1.3+](https://www.tensorflow.org/) (optional for tensorboard)
-
-
-<br/>
 
 ## Usage
 
 ### 1. Cloning the repository
 ```bash
-$ git clone https://github.com/yunjey/StarGAN.git
+$ git clone https://github.com/tarepan/StarGAN.git
 $ cd StarGAN/
 ```
 
@@ -57,13 +47,7 @@ $ python main.py --mode train --dataset RaFD --image_size 128 --c_dim 8 \
                  --model_save_dir stargan_rafd/models --result_dir stargan_rafd/results
 ```
 
-To train StarGAN on both CelebA and RafD:
-
-```bash
-$ python main.py --mode=train --dataset Both --image_size 256 --c_dim 5 --c2_dim 8 \
-                 --sample_dir stargan_both/samples --log_dir stargan_both/logs \
-                 --model_save_dir stargan_both/models --result_dir stargan_both/results
-```
+To train StarGAN on both CelebA and RafD is removed in this simple version.  
 
 To train StarGAN on your own dataset, create a folder structure in the same format as [RaFD](https://github.com/yunjey/StarGAN/blob/master/jpg/RaFD.md) and run the command:
 
@@ -93,14 +77,6 @@ $ python main.py --mode test --dataset RaFD --image_size 128 \
                  --c_dim 8 --rafd_image_dir data/RaFD/test \
                  --sample_dir stargan_rafd/samples --log_dir stargan_rafd/logs \
                  --model_save_dir stargan_rafd/models --result_dir stargan_rafd/results
-```
-
-To test StarGAN on both CelebA and RaFD:
-
-```bash
-$ python main.py --mode test --dataset Both --image_size 256 --c_dim 5 --c2_dim 8 \
-                 --sample_dir stargan_both/samples --log_dir stargan_both/logs \
-                 --model_save_dir stargan_both/models --result_dir stargan_both/results
 ```
 
 To test StarGAN on your own dataset:
@@ -141,10 +117,8 @@ $ python main.py --mode test --dataset CelebA --image_size 256 --c_dim 5 \
 <p align="center"><img width="100%" src="jpg/result_celeba2.jpg" /></p>
 
 
-<br/>
-
 ## Citation
-If this work is useful for your research, please cite our [paper](https://arxiv.org/abs/1711.09020):
+Original work is this [paper](https://arxiv.org/abs/1711.09020):
 ```
 @InProceedings{StarGAN2018,
 author = {Choi, Yunjey and Choi, Minje and Kim, Munyoung and Ha, Jung-Woo and Kim, Sunghun and Choo, Jaegul},
@@ -155,7 +129,6 @@ year = {2018}
 }
 ```
 
-<br/>
-
 ## Acknowledgement
-This work was mainly done while the first author did a research internship at [Clova AI Research, NAVER](https://clova.ai/en/research/research-area-detail.html?id=0). We thank all the researchers at NAVER, especially Donghyun Kwak, for insightful discussions.
+This repository is forked from [yunfey/StarGAN](https://github.com/yunjey/StarGAN) (who is first author of StarGAN article).  
+I thank yunfey for great article and open-implementation.  
