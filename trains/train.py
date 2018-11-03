@@ -21,7 +21,7 @@ def classification_loss(logit, target, dataset='CelebA'):
         return F.cross_entropy(logit, target)
 
 
-def train(config, G, D, g_optimizer, d_optimizer, data_loader, device):
+def train(config, G, D, g_optimizer, d_optimizer, data_loader, device, writer):
     """Train StarGAN within a single dataset."""
     # Learning rate cache for decaying.
     g_lr = config.g_lr
@@ -84,6 +84,11 @@ def train(config, G, D, g_optimizer, d_optimizer, data_loader, device):
         d_loss.backward()
         d_optimizer.step()
 
+        loss = {}
+        loss['D/adv_real'] = d_loss_real.item()
+        loss['D/adv_fake'] = d_loss_fake.item()
+        loss['D/cls'] = d_loss_cls.item()
+        loss['D/gp'] = d_loss_gp.item()
         ########  3. Train the generator
 
         # 1 Generator training per n_critic Discriminator training
@@ -105,6 +110,9 @@ def train(config, G, D, g_optimizer, d_optimizer, data_loader, device):
             g_loss.backward()
             g_optimizer.step()
 
+            loss['G/adv'] = g_loss_fake.item()
+            loss['G/rec'] = g_loss_rec.item()
+            loss['G/cls'] = g_loss_cls.item()
         # =================================================================================== #
         #                               4. After                                              #
         # =================================================================================== #
@@ -118,6 +126,10 @@ def train(config, G, D, g_optimizer, d_optimizer, data_loader, device):
                 param_group['lr'] = g_lr
             for param_group in d_optimizer.param_groups:
                 param_group['lr'] = d_lr
+
+        if (i+1) % config.log_step == 0:
+            for tag, value in loss.items():
+                writer.add_scalar(tag, value, i+1)
 
 def gradient_penalty(y, x, device):
     """Compute gradient penalty: (L2_norm(dy/dx) - 1)**2."""

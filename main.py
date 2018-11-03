@@ -3,6 +3,7 @@ import argparse
 
 import torch
 from torch.backends import cudnn
+from tensorboardX import SummaryWriter
 
 from networks.Generator import Generator
 from networks.Discriminator import Discriminator
@@ -17,7 +18,7 @@ def main(config):
 
     # running preparation
     prepareDirs(config)
-
+    writer = SummaryWriter(config.log_dir)
     # Data preparation
     data_loader = getProperLoader(config)
 
@@ -31,7 +32,7 @@ def main(config):
 
     # Training/Test
     if config.mode == 'train':
-        train(config, G, D, g_optimizer, d_optimizer, data_loader, device)
+        train(config, G, D, g_optimizer, d_optimizer, data_loader, device, writer)
     elif config.mode == 'test':
         test(config, G, data_loader, device)
 
