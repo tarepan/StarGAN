@@ -92,3 +92,20 @@ def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=1
                                   shuffle=(mode=='train'),
                                   num_workers=num_workers)
     return data_loader
+
+def getProperLoader(config):
+    # Data loader.
+    celeba_loader = None
+    rafd_loader = None
+    # Data loader.
+    if config.dataset in ['CelebA', 'Both']:
+        celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
+                                   config.celeba_crop_size, config.image_size, config.batch_size,
+                                   'CelebA', config.mode, config.num_workers)
+    if config.dataset in ['RaFD', 'Both']:
+        rafd_loader = get_loader(config.rafd_image_dir, None, None,
+                                 config.rafd_crop_size, config.image_size, config.batch_size,
+                                 'RaFD', config.mode, config.num_workers)
+    data_loader = celeba_loader if config.dataset == 'CelebA' else rafd_loader if config.dataset == 'RaFD' else None
+    assert data_loader is not None, "data_loader is not properly set."
+    return data_loader
