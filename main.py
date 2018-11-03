@@ -1,10 +1,13 @@
 import os
 import argparse
 
+import torch
 from torch.backends import cudnn
 
-from solver import Solver
+from networks.Generator import Generator
+from networks.Discriminator import Discriminator
 from data_loader import get_loader
+from trains.train import train
 
 
 def str2bool(v):
@@ -27,7 +30,7 @@ def main(config):
     # Data loader.
     celeba_loader = None
     rafd_loader = None
-
+    # Data loader.
     if config.dataset in ['CelebA', 'Both']:
         celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
                                    config.celeba_crop_size, config.image_size, config.batch_size,
@@ -36,15 +39,24 @@ def main(config):
         rafd_loader = get_loader(config.rafd_image_dir, None, None,
                                  config.rafd_crop_size, config.image_size, config.batch_size,
                                  'RaFD', config.mode, config.num_workers)
+    data_loader = celeba_loader if config.dataset == 'CelebA' else rafd_loader if config.dataset == 'RaFD' else None
+    assert data_loader is not None, "data_loader is not properly set."
 
+    # Initialization
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    G = Generator(config.g_conv_dim, config.c_dim, config.g_repeat_num)
+    D = Discriminator(config.image_size, config.d_conv_dim, config.c_dim, config.d_repeat_num)
 
-    # Solver for training and testing StarGAN.
-    solver = Solver(celeba_loader, rafd_loader, config)
+    g_optimizer = torch.optim.Adam(G.parameters(), config.g_lr, [config.beta1, config.beta2])
+    d_optimizer = torch.optim.Adam(D.parameters(), config.d_lr, [config.beta1, config.beta2])
+
+    G.to(device)
+    D.to(device)
 
     if config.mode == 'train':
-        solver.train()
+        train(config, G, D, g_optimizer, d_optimizer, data_loader, device)
     elif config.mode == 'test':
-        solver.test()
+        test(config, G, data_loader, device)
 
 
 if __name__ == '__main__':

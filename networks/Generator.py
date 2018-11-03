@@ -53,6 +53,9 @@ class Generator(nn.Module):
         self.main = nn.Sequential(*layers)
 
     def forward(self, x, c):
+        """
+        For skip input of label c, c should be original label, not already tiled (which disable c input for shrinked/expanded layers)
+        """
         # Replicate spatially and concatenate domain information.
         c = c.view(c.size(0), c.size(1), 1, 1)
         c = c.repeat(1, 1, x.size(2), x.size(3))
