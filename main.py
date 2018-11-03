@@ -6,7 +6,7 @@ from torch.backends import cudnn
 
 from networks.Generator import Generator
 from networks.Discriminator import Discriminator
-from data_loader import getProperLoader
+from dataProcess.data_loader import getProperLoader
 from trains.train import train
 
 
