@@ -1,14 +1,15 @@
-from model import Generator
-from model import Discriminator
+import os
+import time
+import datetime
+
 from torch.autograd import Variable
 from torchvision.utils import save_image
 import torch
 import torch.nn.functional as F
 import numpy as np
-import os
-import time
-import datetime
 
+from networks.Generator import Generator
+from networks.Discriminator import Discriminator
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
@@ -16,88 +17,21 @@ class Solver(object):
     def __init__(self, celeba_loader, rafd_loader, config):
         """Initialize configurations."""
 
+        self.config = config
         # Data loader.
         self.celeba_loader = celeba_loader
         self.rafd_loader = rafd_loader
 
-        # Model configurations.
-        self.c_dim = config.c_dim
-        self.c2_dim = config.c2_dim
-        self.image_size = config.image_size
-        self.g_conv_dim = config.g_conv_dim
-        self.d_conv_dim = config.d_conv_dim
-        self.g_repeat_num = config.g_repeat_num
-        self.d_repeat_num = config.d_repeat_num
-        self.lambda_cls = config.lambda_cls
-        self.lambda_rec = config.lambda_rec
-        self.lambda_gp = config.lambda_gp
-
-        # Training configurations.
-        self.dataset = config.dataset
-        self.batch_size = config.batch_size
-        self.num_iters = config.num_iters
-        self.num_iters_decay = config.num_iters_decay
-        self.g_lr = config.g_lr
-        self.d_lr = config.d_lr
-        self.n_critic = config.n_critic
-        self.beta1 = config.beta1
-        self.beta2 = config.beta2
-        self.resume_iters = config.resume_iters
-        self.selected_attrs = config.selected_attrs
-
-        # Test configurations.
-        self.test_iters = config.test_iters
-
-        # Miscellaneous.
-        self.use_tensorboard = config.use_tensorboard
+        # Initialization
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.G = Generator(config.g_conv_dim, config.c_dim, config.g_repeat_num)
+        self.D = Discriminator(config.image_size, config.d_conv_dim, config.c_dim, config.d_repeat_num)
 
-        # Directories.
-        self.log_dir = config.log_dir
-        self.sample_dir = config.sample_dir
-        self.model_save_dir = config.model_save_dir
-        self.result_dir = config.result_dir
-
-        # Step size.
-        self.log_step = config.log_step
-        self.sample_step = config.sample_step
-        self.model_save_step = config.model_save_step
-        self.lr_update_step = config.lr_update_step
-
-        # Build the model and tensorboard.
-        self.build_model()
-
-    def build_model(self):
-        """Create a generator and a discriminator."""
-        if self.dataset in ['CelebA', 'RaFD']:
-            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num)
-        elif self.dataset in ['Both']:
-            self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
-            self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
-
-        self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
-        self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
+        self.g_optimizer = torch.optim.Adam(self.G.parameters(), config.g_lr, [config.beta1, config.beta2])
+        self.d_optimizer = torch.optim.Adam(self.D.parameters(), config.d_lr, [config.beta1, config.beta2])
 
         self.G.to(self.device)
         self.D.to(self.device)
-
-    def update_lr(self, g_lr, d_lr):
-        """Decay learning rates of the generator and discriminator."""
-        for param_group in self.g_optimizer.param_groups:
-            param_group['lr'] = g_lr
-        for param_group in self.d_optimizer.param_groups:
-            param_group['lr'] = d_lr
-
-    def reset_grad(self):
-        """Reset the gradient buffers."""
-        self.g_optimizer.zero_grad()
-        self.d_optimizer.zero_grad()
-
-    def denorm(self, x):
-        """Convert the range from [-1, 1] to [0, 1]."""
-        out = (x + 1) / 2
-        return out.clamp_(0, 1)
 
     def gradient_penalty(self, y, x):
         """Compute gradient penalty: (L2_norm(dy/dx) - 1)**2."""
@@ -154,11 +88,12 @@ class Solver(object):
             return F.cross_entropy(logit, target)
 
     def train(self):
+        config = self.config
         """Train StarGAN within a single dataset."""
         # Set data loader.
-        if self.dataset == 'CelebA':
+        if config.dataset == 'CelebA':
             data_loader = self.celeba_loader
-        elif self.dataset == 'RaFD':
+        elif config.dataset == 'RaFD':
             data_loader = self.rafd_loader
 
         # Fetch fixed inputs for debugging.
@@ -166,11 +101,11 @@ class Solver(object):
         x_fixed, c_org = next(data_iter)
         x_fixed = x_fixed.to(self.device)
         # selected_attrs: (like) ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young']
-        c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+        c_fixed_list = self.create_labels(c_org, config.c_dim, config.dataset, config.selected_attrs)
 
         # Learning rate cache for decaying.
-        g_lr = self.g_lr
-        d_lr = self.d_lr
+        g_lr = config.g_lr
+        d_lr = config.d_lr
 
         # Start training from scratch or resume training.
         start_iters = 0
@@ -179,13 +114,9 @@ class Solver(object):
         # Start training.
         print('Start training...')
         start_time = time.time()
-        for i in range(start_iters, self.num_iters):
+        for i in range(start_iters, config.num_iters):
             # single iteration
-
-            # =================================================================================== #
-            #                             1. Preprocess input data                                #
-            # =================================================================================== #
-
+            ####### 1. Preprocess input data
             # Fetch real images and labels.
             try:
                 x_real, label_org = next(data_iter)
@@ -197,12 +128,12 @@ class Solver(object):
             rand_idx = torch.randperm(label_org.size(0))
             label_trg = label_org[rand_idx]
 
-            if self.dataset == 'CelebA':
+            if config.dataset == 'CelebA':
                 c_org = label_org.clone()
                 c_trg = label_trg.clone()
-            elif self.dataset == 'RaFD':
-                c_org = self.label2onehot(label_org, self.c_dim)
-                c_trg = self.label2onehot(label_trg, self.c_dim)
+            elif config.dataset == 'RaFD':
+                c_org = self.label2onehot(label_org, config.c_dim)
+                c_trg = self.label2onehot(label_trg, config.c_dim)
 
             x_real = x_real.to(self.device)           # Input images.
             c_org = c_org.to(self.device)             # Original domain labels.
@@ -210,16 +141,13 @@ class Solver(object):
             label_org = label_org.to(self.device)     # Labels for computing classification loss.
             label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
 
-            # =================================================================================== #
-            #                             2. Train the discriminator                              #
-            # =================================================================================== #
-
+            ####### 2. Train the discriminator
             # Compute loss with real images.
             out_src, out_cls = self.D(x_real)
             # mean of 2D probability patch
             d_loss_real = - torch.mean(out_src)
             ########
-            d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
+            d_loss_cls = self.classification_loss(out_cls, label_org, config.dataset)
 
             # Compute loss with fake images.
             x_fake = self.G(x_real, c_trg)
@@ -234,24 +162,24 @@ class Solver(object):
             d_loss_gp = self.gradient_penalty(out_src, x_hat)
 
             # Backward and optimize.
-            d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
-            self.reset_grad()
+            d_loss = d_loss_real + d_loss_fake + config.lambda_cls * d_loss_cls + config.lambda_gp * d_loss_gp
+            self.g_optimizer.zero_grad()
+            self.d_optimizer.zero_grad()
+
             d_loss.backward()
             self.d_optimizer.step()
 
-            # =================================================================================== #
-            #                               3. Train the generator                                #
-            # =================================================================================== #
+            ########  3. Train the generator
 
             # 1 Generator training per n_critic Discriminator training
-            if (i+1) % self.n_critic == 0:
+            if (i+1) % config.n_critic == 0:
                 # Original-to-target domain.
                 x_fake = self.G(x_real, c_trg)
                 out_src, out_cls = self.D(x_fake)
                 #######
                 g_loss_fake = - torch.mean(out_src)
                 #######
-                g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
+                g_loss_cls = self.classification_loss(out_cls, label_trg, config.dataset)
 
                 # Target-to-original domain.
                 x_reconst = self.G(x_fake, c_org)
@@ -259,8 +187,9 @@ class Solver(object):
                 g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
 
                 # Backward and optimize.
-                g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
-                self.reset_grad()
+                g_loss = g_loss_fake + config.lambda_rec * g_loss_rec + config.lambda_cls * g_loss_cls
+                self.g_optimizer.zero_grad()
+                self.d_optimizer.zero_grad()
                 g_loss.backward()
                 self.g_optimizer.step()
 
@@ -269,21 +198,25 @@ class Solver(object):
             # =================================================================================== #
 
             # Decay learning rates.
-            if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
-                g_lr -= (self.g_lr / float(self.num_iters_decay))
-                d_lr -= (self.d_lr / float(self.num_iters_decay))
-                self.update_lr(g_lr, d_lr)
+            if (i+1) % config.lr_update_step == 0 and (i+1) > (config.num_iters - config.num_iters_decay):
+                g_lr -= (config.g_lr / float(config.num_iters_decay))
+                d_lr -= (config.d_lr / float(config.num_iters_decay))
+                # """Decay learning rates of the generator and discriminator."""
+                for param_group in self.g_optimizer.param_groups:
+                    param_group['lr'] = g_lr
+                for param_group in self.d_optimizer.param_groups:
+                    param_group['lr'] = d_lr
 
 
     def test(self):
         """Translate images using StarGAN trained on a single dataset."""
         # Load the trained generator.
-        self.restore_model(self.test_iters)
+        self.restore_model(config.test_iters)
 
         # Set data loader.
-        if self.dataset == 'CelebA':
+        if config.dataset == 'CelebA':
             data_loader = self.celeba_loader
-        elif self.dataset == 'RaFD':
+        elif config.dataset == 'RaFD':
             data_loader = self.rafd_loader
 
         with torch.no_grad():
@@ -291,7 +224,7 @@ class Solver(object):
 
                 # Prepare input images and target domain labels.
                 x_real = x_real.to(self.device)
-                c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+                c_trg_list = self.create_labels(c_org, config.c_dim, config.dataset, config.selected_attrs)
 
                 # Translate images.
                 x_fake_list = [x_real]
@@ -300,6 +233,8 @@ class Solver(object):
 
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
-                result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
+                result_path = os.path.join(config.result_dir, '{}-images.jpg'.format(i+1))
+                # """Convert the range from [-1, 1] to [0, 1]."""
+                denorm = lambda x: ((x + 1) / 2).clamp_(0, 1)
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))

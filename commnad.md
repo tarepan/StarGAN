@@ -1,0 +1,1 @@
+python main.py --mode train --dataset CelebA --image_size 128 --c_dim 5 --sample_dir trial1/samples --log_dir trial1/logs --model_save_dir trial1/models --result_dir trial1/results --selected_attrs Black_Hair Blond_Hair Brown_Hair Male Young
